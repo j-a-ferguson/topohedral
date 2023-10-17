@@ -105,7 +105,7 @@
         ]
     },
     "knots_p0": {
-        "descrption": "knots for order 0",
+        "description": "knots for order 0",
         "values": [
             0,
             1,
@@ -117,7 +117,7 @@
         ]
     },
     "knots_p1": {
-        "descrption": "knots for order 1",
+        "description": "knots for order 1",
         "values": [
             0,
             0,
@@ -131,7 +131,7 @@
         ]
     },
     "knots_p2": {
-        "descrption": "knots for order 2",
+        "description": "knots for order 2",
         "values": [
             0,
             0,
@@ -147,7 +147,7 @@
         ]
     },
     "knots_p3": {
-        "descrption": "knots for order 3",
+        "description": "knots for order 3",
         "values": [
             0,
             0,
@@ -165,7 +165,7 @@
         ]
     },
     "knots_p4": {
-        "descrption": "knots for order 4",
+        "description": "knots for order 4",
         "values": [
             0,
             0,

@@ -40,7 +40,7 @@ def saveKnots(data_out: dict):
         m = len(knots)
         knot_dataset_str = 'knots_p%i' % p
         data_out[knot_dataset_str] = dict()
-        data_out[knot_dataset_str]["descrption"] = 'knots for order %d' % (p)
+        data_out[knot_dataset_str]["description"] = 'knots for order %d' % (p)
         data_out[knot_dataset_str]["values"] = knots
 
 
