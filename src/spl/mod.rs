@@ -4,7 +4,12 @@
 //! 
 //! 
 
+
+use crate::utl;
+
 use float_cmp::approx_eq;
+use nalgebra as nl;
+
 
 // ------------------------------------------- Structs ------------------------------------------ //
 
@@ -129,6 +134,15 @@ impl BsplineBasis
         }
     }
     //..............................................................................................
+
+    pub fn eval_diff(&self, u: f64, p: usize, n: usize, shape_ders: &mut [f64])
+    {
+        assert!(self.is_member(u), "u is not member of parameter range");
+        assert!(p <= PMAX, "order exceeds max allowable");
+        assert!(n <= p, "order of derivative exceeds order");
+
+
+    }
 }
 
 
