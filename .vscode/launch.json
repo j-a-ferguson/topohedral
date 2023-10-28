@@ -7,7 +7,7 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'hedral'",
+            "name": "All Unit Tests",
             "cargo": {
                 "args": [
                     "test",
@@ -22,6 +22,25 @@
             },
             "args": [],
             "cwd": "${workspaceFolder}"
-        }
+        }, 
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Matching Unit Tests",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=hedral"
+                ],
+                "filter": {
+                    "name": "hedral",
+                    "kind": "lib"
+                }
+            },
+            "args": ["eval2"],
+            "cwd": "${workspaceFolder}"
+        } 
     ]
 }
