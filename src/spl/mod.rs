@@ -122,7 +122,7 @@ impl BsplineBasis
 
         for j in 1..p+1
         {
-            left[j-1] = u - self.knots[i + 1 - j];
+            left[j-1] = u - self.knots[i - p + j];
             right[j-1] = self.knots[i + j] - u;
         }
 
@@ -131,9 +131,11 @@ impl BsplineBasis
             let mut saved = 0.0;
             for r in 0..j 
             {
-                let temp = shape_funs[r] / (right[r] + left[j-r-1]);
-                shape_funs[r] = saved + (right[r] * temp);
-                saved = left[j - r - 1] * temp;
+                let ri = right[r];
+                let le = left[p - j + r];
+                let temp = shape_funs[r] / (ri + le);
+                shape_funs[r] = saved + (ri * temp);
+                saved = le * temp;
             }
             shape_funs[j] = saved;
         }
