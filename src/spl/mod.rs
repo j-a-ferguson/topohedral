@@ -115,8 +115,8 @@ impl BsplineBasis
         shape_funs.fill(0.0);
         shape_funs[0] = 1.0;
 
-        let mut left = [0.0; PMAX+1];
-        let mut right =[0.0; PMAX+1];
+        let mut left = [0.0; PMAX];
+        let mut right =[0.0; PMAX];
 
         let i = self.find_span(u, p);
 
