@@ -21,7 +21,8 @@
                 }
             },
             "args": [],
-            "cwd": "${workspaceFolder}"
+            "cwd": "${workspaceFolder}", 
+            "sourceLanguages": ["rust"]
         }, 
         {
             "type": "lldb",
@@ -39,8 +40,9 @@
                     "kind": "lib"
                 }
             },
-            "args": ["eval2"],
-            "cwd": "${workspaceFolder}"
+            "args": ["eval_diff1"],
+            "cwd": "${workspaceFolder}",
+            "sourceLanguages": ["rust"]
         } 
     ]
 }
