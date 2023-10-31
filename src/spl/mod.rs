@@ -162,6 +162,56 @@ impl BsplineBasis
         assert!(k <= p, "order of derivative exceeds order");
         assert!(shape_ders.len() >= (p+1), "Derivative buffer too small");
 
+        let i = self.find_span(u, p);
+        let p_k = p - k;
+
+        /* doc: compute shape functions
+        This code-block initialises the first p_k+1 elements of 
+        shape_ders to the shape functions: 
+
+            N_{i-p_k, p_k}^{(0)} ... N_{i-p_k, p_k}^{(0)}
+        
+        This is the first phase of the cox-deboor recursion.
+         */
+        {
+            shape_ders.fill(0.0);
+            shape_ders[0] = 1.0;
+            let mut left = [0.0; PMAX];
+            let mut right =[0.0; PMAX];
+            for j in 1..p_k+1
+            {
+                left[j-1] = u - self.knots[i - p_k + j];
+                right[j-1] = self.knots[i + j] - u;
+            }
+            for j in 1..p_k+1
+            {
+                let mut saved = 0.0;
+                for r in 0..j 
+                {
+                    let ri = right[r];
+                    let le = left[p_k - j + r];
+                    let temp = shape_ders[r] / (ri + le);
+                    shape_ders[r] = saved + (ri * temp);
+                    saved = le * temp;
+                }
+                shape_ders[j] = saved;
+            }
+        }
+
+        for k2 in 1..k+1 // loop over derivative
+        {
+            let p_k2 = p_k + k2;
+            let p_k2_f = p_k2 as f64;
+            let mut saved = 0.0;
+            for r in 0..p_k2
+            {
+                let denom = self.knots[i + 1 + r] - self.knots[i + 1 + r - p_k2];
+                let temp = ( p_k2_f  / denom ) * shape_ders[r];
+                shape_ders[r] = saved - temp;
+                saved = temp;
+            }
+            shape_ders[p_k2] = saved;
+        }
     }
 }
 
@@ -181,6 +231,8 @@ mod tests {
     use serde::Deserialize;
     use std::fs;
     use nalgebra as na;
+
+    const ZERO_THRESHOLD: f64=1e-14;
 
     #[derive(Deserialize)]
     struct ParamData{
@@ -327,9 +379,19 @@ mod tests {
 
                     for j in 0..p+1 
                     {
-                        let ders1 = ders1_all[j].clone();
+                        let mut ders1 = ders1_all[j].clone();
+                        ders1.iter_mut().for_each(|elem| {
+                            if elem.abs() < ZERO_THRESHOLD {
+                                *elem = 0.0;
+                            }
+                        });
                         let mut ders2 = [0.0; PMAX+1];
                         basis.eval_diff(*u, p, j, &mut ders2);
+                        ders2.iter_mut().for_each(|elem| {
+                            if elem.abs() < ZERO_THRESHOLD {
+                                *elem = 0.0;
+                            }
+                        });
                         for k in 0..num_basis 
                         {
                             let val1 = ders1[k + start];
