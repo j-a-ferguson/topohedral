@@ -1,4 +1,5 @@
 
+#![feature(generic_const_exprs)]
 mod utl;
 mod spl;
-pub mod cur;
+pub mod geo;

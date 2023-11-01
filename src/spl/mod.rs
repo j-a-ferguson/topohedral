@@ -6,9 +6,6 @@
 
 
 use approx::ulps_eq;
-use nalgebra as na;
-
-
 // ------------------------------------------- Structs ------------------------------------------ //
 
 /// This struct represent a set of B-spline basis functions.
@@ -222,15 +219,12 @@ impl BsplineBasis
 #[cfg(test)]
 mod tests {
 
-    use crate::spl::KNOT_ULPS;
-
     use super::BsplineBasis;
     use super::PMAX;
 
     use approx::assert_relative_eq;
     use serde::Deserialize;
     use std::fs;
-    use nalgebra as na;
 
     const ZERO_THRESHOLD: f64=1e-14;
 
