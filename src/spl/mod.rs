@@ -25,9 +25,9 @@ pub struct BsplineBasis
 // ----------------------------------------- Constants ------------------------------------------ //
 
 /// This is the maximum allowable order of a bspline basis. It is an arbitrary number.
-const PMAX: usize = 8;
+pub const PMAX: usize = 8;
 /// This is the tolerance with which two knots are considered equal
-const KNOT_ULPS: u32 = 32;
+pub const KNOT_ULPS: u32 = 32;
 
 // --------------------------------------- Free Functions---------------------------------------- //
 
