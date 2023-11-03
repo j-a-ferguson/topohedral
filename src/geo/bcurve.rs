@@ -9,6 +9,7 @@
 use nalgebra as na;
 
 use crate::spl;
+use crate::spl::BsplineBasis;
 
 use super::common::Curve;
 use super::common::Vector;
@@ -21,7 +22,7 @@ pub struct Bcurve<const D: usize>
 {
     p: usize, 
     basis: spl::BsplineBasis,
-    points: Vec<Vector<D>>,
+    points_w: Vec<Vector<D>>,
 }
 
 // ------------------------------------------- Enums -------------------------------------------- //
@@ -40,11 +41,12 @@ pub struct Bcurve<const D: usize>
 
 impl<const D: usize> Bcurve<D> {
 
-    pub fn new<I1: IntoIterator<Item=f64>, 
-               I2: IntoIterator<Item=Vector<D>>
-               (p_in: usize, knots_in: I1, points_w_in: I2) -> Self 
+    pub fn new<KnotIter: IntoIterator<Item=f64>, 
+               WeightIter: IntoIterator<Item=f64>,
+               PointIter: IntoIterator<Item=Vector<{D-1}>>>
+               (p: usize, knot: KnotIter, weights: WeightIter, points_w: PointIter) -> Self 
     {
-        Self { p: p_in, basis: (), points: () }
+        let weights_tmp = w
     }
 }
 
@@ -222,6 +224,8 @@ mod tests {
     fn construction()
     {
         let test_data = TestData::new();
+        let knots = test_data.knots_p3;
+        let points    
     }
 
 }

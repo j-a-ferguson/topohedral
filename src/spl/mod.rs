@@ -71,6 +71,7 @@ impl BsplineBasis
     pub fn new<I: IntoIterator<Item=f64>>(start: I) -> Self 
     {
         let knots: Vec<f64> = start.into_iter().collect();
+        debug_assert!(knots.is_sorted());
         Self{knots}
     }
     //..............................................................................................
@@ -103,7 +104,7 @@ impl BsplineBasis
 
     pub fn non_zero_basis(&self, u: f64, p: usize) -> (usize, usize, usize)
     {
-        assert!(self.is_member(u));
+        debug_assert!(self.is_member(u));
 
         let mi = self.knots.len() as i32;
         let span_i = self.find_span(u, p) as i32;
@@ -118,8 +119,9 @@ impl BsplineBasis
 
     pub fn eval(&self, u: f64, p: usize, shape_funs: &mut [f64])
     {
-        assert!(shape_funs.len() >= p+1, "Buffer too small to hold results");
-        assert!(self.is_member(u), "u is outside of ");
+        debug_assert!(shape_funs.len() >= p+1, "Buffer too small to hold results");
+        debug_assert!(self.is_member(u), "u is outside of ");
+
         shape_funs.fill(0.0);
         shape_funs[0] = 1.0;
 
@@ -154,10 +156,10 @@ impl BsplineBasis
 
     pub fn eval_diff(&self, u: f64, p: usize, k: usize, shape_ders: &mut [f64])
     {
-        assert!(self.is_member(u), "u is not member of parameter range");
-        assert!(p <= PMAX, "order exceeds max allowable");
-        assert!(k <= p, "order of derivative exceeds order");
-        assert!(shape_ders.len() >= (p+1), "Derivative buffer too small");
+        debug_assert!(self.is_member(u), "u is not member of parameter range");
+        debug_assert!(p <= PMAX, "order exceeds max allowable");
+        debug_assert!(k <= p, "order of derivative exceeds order");
+        debug_assert!(shape_ders.len() >= (p+1), "Derivative buffer too small");
 
         let i = self.find_span(u, p);
         let p_k = p - k;
