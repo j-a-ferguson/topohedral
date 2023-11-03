@@ -8,19 +8,7 @@
 use approx::ulps_eq;
 // ------------------------------------------- Structs ------------------------------------------ //
 
-/// This struct represent a set of B-spline basis functions.
-/// 
-/// A B-spline basis is constructed from two things:
-/// - A **knot vector** $\mathbf{u} = [u_{0}, ..., u_{m-1}]$ 
-/// - A **polynomial degree** $p$
-/// 
-pub struct BsplineBasis
-{
-    knots: Vec<f64>,
-}
-
 // ------------------------------------------- Enums -------------------------------------------- //
-
 
 // ----------------------------------------- Constants ------------------------------------------ //
 
@@ -65,164 +53,153 @@ fn binom_coeff(p: usize, k: usize) -> f64
     }
     out as f64
 }
-// --------------------------------------- Implementations -------------------------------------- //
-impl BsplineBasis
+
+
+pub fn is_member(knots: &[f64], u: f64) -> bool
 {
-    pub fn new<I: IntoIterator<Item=f64>>(start: I) -> Self 
+    let umin = knots.first().unwrap();
+    let umax = knots.last().unwrap();
+    knot_gt(u, *umin) && knot_lt(u, *umax)
+}
+//..............................................................................................
+
+pub fn find_span(knots: &[f64], u: f64, p: usize) -> usize 
+{
+    let n = knots.len() - p - 1;
+    let mut span: usize;
+
+    if knot_eq(u, knots[n])
     {
-        let knots: Vec<f64> = start.into_iter().collect();
-        debug_assert!(knots.is_sorted());
-        Self{knots}
+        span = n-1;
     }
-    //..............................................................................................
-
-    pub fn is_member(&self, u: f64) -> bool
-    {
-        let umin = self.knots.first().unwrap();
-        let umax = self.knots.last().unwrap();
-        knot_gt(u, *umin) && knot_lt(u, *umax)
+    else {
+        let low = p;
+        let idx = upper_bound(&knots[low..], u) + low;
+        span = idx-1;
     }
-    //..............................................................................................
+    span
+}
+//..............................................................................................
 
-    pub fn find_span(&self, u: f64, p: usize) -> usize 
+pub fn non_zero_basis(knots: &[f64], u: f64, p: usize) -> (usize, usize, usize)
+{
+    debug_assert!(is_member(knots, u));
+
+    let mi = knots.len() as i32;
+    let span_i = find_span(knots, u, p) as i32;
+    let pi = p as i32;
+
+    let start = std::cmp::max(0, span_i - pi) as usize;
+    let end = (std::cmp::min(span_i, mi - 2 - pi)+1) as usize;
+    let num_basis = end - start;
+    (start, end, num_basis)
+}
+//..............................................................................................
+
+pub fn eval(knots: &[f64], u: f64, p: usize, shape_funs: &mut [f64])
+{
+    debug_assert!(shape_funs.len() >= p+1, "Buffer too small to hold results");
+    debug_assert!(is_member(knots, u), "u is outside of ");
+
+    shape_funs.fill(0.0);
+    shape_funs[0] = 1.0;
+
+    let mut left = [0.0; PMAX];
+    let mut right =[0.0; PMAX];
+
+    let i = find_span(knots, u, p);
+
+    for j in 1..p+1
     {
-        let n = self.knots.len() - p - 1;
-        let mut span: usize;
+        left[j-1] = u - knots[i - p + j];
+        right[j-1] = knots[i + j] - u;
+    }
 
-        if knot_eq(u, self.knots[n])
+    for j in 1..p+1
+    {
+        let mut saved = 0.0;
+        for r in 0..j 
         {
-            span = n-1;
+            let ri = right[r];
+            let le = left[p - j + r];
+            let temp = shape_funs[r] / (ri + le);
+            shape_funs[r] = saved + (ri * temp);
+            saved = le * temp;
         }
-        else {
-            let low = p;
-            let idx = upper_bound(&self.knots[low..], u) + low;
-            span = idx-1;
-        }
-        span
+        shape_funs[j] = saved;
     }
-    //..............................................................................................
+}
+//..............................................................................................
 
-    pub fn non_zero_basis(&self, u: f64, p: usize) -> (usize, usize, usize)
+
+
+pub fn eval_diff(knots: &[f64], u: f64, p: usize, k: usize, shape_ders: &mut [f64])
+{
+    debug_assert!(is_member(knots, u), "u is not member of parameter range");
+    debug_assert!(p <= PMAX, "order exceeds max allowable");
+    debug_assert!(k <= p, "order of derivative exceeds order");
+    debug_assert!(shape_ders.len() >= (p+1), "Derivative buffer too small");
+
+    let i = find_span(knots, u, p);
+    let p_k = p - k;
+
+    /* doc: compute shape functions
+    This code-block initialises the first p_k+1 elements of 
+    shape_ders to the shape functions: 
+
+        N_{i-p_k, p_k}^{(0)} ... N_{i-p_k, p_k}^{(0)}
+    
+    This is the first phase of the cox-deboor recursion.
+        */
     {
-        debug_assert!(self.is_member(u));
-
-        let mi = self.knots.len() as i32;
-        let span_i = self.find_span(u, p) as i32;
-        let pi = p as i32;
-
-        let start = std::cmp::max(0, span_i - pi) as usize;
-        let end = (std::cmp::min(span_i, mi - 2 - pi)+1) as usize;
-        let num_basis = end - start;
-        (start, end, num_basis)
-    }
-    //..............................................................................................
-
-    pub fn eval(&self, u: f64, p: usize, shape_funs: &mut [f64])
-    {
-        debug_assert!(shape_funs.len() >= p+1, "Buffer too small to hold results");
-        debug_assert!(self.is_member(u), "u is outside of ");
-
-        shape_funs.fill(0.0);
-        shape_funs[0] = 1.0;
-
+        shape_ders.fill(0.0);
+        shape_ders[0] = 1.0;
         let mut left = [0.0; PMAX];
         let mut right =[0.0; PMAX];
-
-        let i = self.find_span(u, p);
-
-        for j in 1..p+1
+        for j in 1..p_k+1
         {
-            left[j-1] = u - self.knots[i - p + j];
-            right[j-1] = self.knots[i + j] - u;
+            left[j-1] = u - knots[i - p_k + j];
+            right[j-1] = knots[i + j] - u;
         }
-
-        for j in 1..p+1
+        for j in 1..p_k+1
         {
             let mut saved = 0.0;
             for r in 0..j 
             {
                 let ri = right[r];
-                let le = left[p - j + r];
-                let temp = shape_funs[r] / (ri + le);
-                shape_funs[r] = saved + (ri * temp);
+                let le = left[p_k - j + r];
+                let temp = shape_ders[r] / (ri + le);
+                shape_ders[r] = saved + (ri * temp);
                 saved = le * temp;
             }
-            shape_funs[j] = saved;
+            shape_ders[j] = saved;
         }
     }
-    //..............................................................................................
 
-
-
-    pub fn eval_diff(&self, u: f64, p: usize, k: usize, shape_ders: &mut [f64])
+    for k2 in 1..k+1 // loop over derivative
     {
-        debug_assert!(self.is_member(u), "u is not member of parameter range");
-        debug_assert!(p <= PMAX, "order exceeds max allowable");
-        debug_assert!(k <= p, "order of derivative exceeds order");
-        debug_assert!(shape_ders.len() >= (p+1), "Derivative buffer too small");
-
-        let i = self.find_span(u, p);
-        let p_k = p - k;
-
-        /* doc: compute shape functions
-        This code-block initialises the first p_k+1 elements of 
-        shape_ders to the shape functions: 
-
-            N_{i-p_k, p_k}^{(0)} ... N_{i-p_k, p_k}^{(0)}
-        
-        This is the first phase of the cox-deboor recursion.
-         */
+        let p_k2 = p_k + k2;
+        let p_k2_f = p_k2 as f64;
+        let mut saved = 0.0;
+        for r in 0..p_k2
         {
-            shape_ders.fill(0.0);
-            shape_ders[0] = 1.0;
-            let mut left = [0.0; PMAX];
-            let mut right =[0.0; PMAX];
-            for j in 1..p_k+1
-            {
-                left[j-1] = u - self.knots[i - p_k + j];
-                right[j-1] = self.knots[i + j] - u;
-            }
-            for j in 1..p_k+1
-            {
-                let mut saved = 0.0;
-                for r in 0..j 
-                {
-                    let ri = right[r];
-                    let le = left[p_k - j + r];
-                    let temp = shape_ders[r] / (ri + le);
-                    shape_ders[r] = saved + (ri * temp);
-                    saved = le * temp;
-                }
-                shape_ders[j] = saved;
-            }
+            let denom = knots[i + 1 + r] - knots[i + 1 + r - p_k2];
+            let temp = ( p_k2_f  / denom ) * shape_ders[r];
+            shape_ders[r] = saved - temp;
+            saved = temp;
         }
-
-        for k2 in 1..k+1 // loop over derivative
-        {
-            let p_k2 = p_k + k2;
-            let p_k2_f = p_k2 as f64;
-            let mut saved = 0.0;
-            for r in 0..p_k2
-            {
-                let denom = self.knots[i + 1 + r] - self.knots[i + 1 + r - p_k2];
-                let temp = ( p_k2_f  / denom ) * shape_ders[r];
-                shape_ders[r] = saved - temp;
-                saved = temp;
-            }
-            shape_ders[p_k2] = saved;
-        }
+        shape_ders[p_k2] = saved;
     }
 }
 
-
+// --------------------------------------- Implementations -------------------------------------- //
 
 // ------------------------------------------- Tests -------------------------------------------- //
 
 #[cfg(test)]
 mod tests {
 
-    use super::BsplineBasis;
-    use super::PMAX;
+    use super::*;
 
     use approx::assert_relative_eq;
     use serde::Deserialize;
@@ -288,28 +265,17 @@ mod tests {
         }
     }
 
-
-    #[test]
-    fn construction()
-    {
-        let knots = vec![0.0, 0.1, 0.2, 0.3];
-        let bspline_basis = BsplineBasis::new(knots.clone());
-        assert_eq!(bspline_basis.knots, knots);
-
-    }
-    //..............................................................................................
-
     macro_rules! find_span {
         ($test_name:ident, $knots:ident, $span:ident, $order:expr) => {
             #[test]
             fn $test_name() {
                 let test_data = TestData::new();
-                let basis = BsplineBasis::new(test_data.$knots.values.clone());
+                let knots = test_data.$knots.values.clone();
 
                 for (idx, u) in test_data.u.values.iter().enumerate()
                 {
                     let span1 = test_data.$span.values[idx];
-                    let span2 = basis.find_span(*u, $order);
+                    let span2 = find_span(&knots, *u, $order);
                     assert_eq!(span1, span2);
                 }
             }    
@@ -328,16 +294,16 @@ mod tests {
             fn $test_name() {
 
                 let test_data = TestData::new();
-                let basis = BsplineBasis::new(test_data.$knots.values.clone());
+                let knots = test_data.$knots.values.clone();
 
                 for (idx, u) in test_data.u.values.iter().enumerate()
                 {
 
-                    let (start, end, _num_basis) = basis.non_zero_basis(*u, $order);
+                    let (start, end, _num_basis) = non_zero_basis(&knots, *u, $order);
                     let basis_funs1 = test_data.$basis.values[idx].clone();
 
                     let mut basis_funs2 = [0.0; PMAX];
-                    basis.eval(*u, $order, &mut basis_funs2);
+                    eval(&knots, *u, $order, &mut basis_funs2);
 
                     for i in start..end
                     {
@@ -364,14 +330,15 @@ mod tests {
             fn $test_name() {
                 let p = $order;
                 let test_data = TestData::new();
-                let basis = BsplineBasis::new(test_data.$knots.values.clone());
+                let knots = test_data.$knots.values.clone();
+
                 for (idx, u) in test_data.u.values.iter().enumerate()
                 {
                     let ders_start = idx * (p + 1);
                     let ders_end = (idx+1) * (p + 1);
                     let ders1_all = test_data.$ders.values[ders_start..ders_end].to_vec();
 
-                    let (start, _end, num_basis) = basis.non_zero_basis(*u, p);
+                    let (start, _end, num_basis) = non_zero_basis(&knots, *u, p);
 
                     for j in 0..p+1 
                     {
@@ -382,7 +349,7 @@ mod tests {
                             }
                         });
                         let mut ders2 = [0.0; PMAX+1];
-                        basis.eval_diff(*u, p, j, &mut ders2);
+                        eval_diff(&knots, *u, p, j, &mut ders2);
                         ders2.iter_mut().for_each(|elem| {
                             if elem.abs() < ZERO_THRESHOLD {
                                 *elem = 0.0;
