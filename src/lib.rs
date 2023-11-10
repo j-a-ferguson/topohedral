@@ -4,4 +4,4 @@
 
 mod utl;
 mod spl;
-// pub mod geo;
+pub mod geo;

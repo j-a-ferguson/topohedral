@@ -6,6 +6,7 @@
 
 
 use approx::ulps_eq;
+use crate::utl::NDArray;
 // ------------------------------------------- Structs ------------------------------------------ //
 
 // ------------------------------------------- Enums -------------------------------------------- //
@@ -43,16 +44,6 @@ fn upper_bound(arr: &[f64], value: f64) -> usize
     arr.binary_search_by(comp).unwrap_or_else(|index| index)
 }
 
-fn binom_coeff(p: usize, k: usize) -> f64
-{
-    assert!(p >= k, "p must be greater than k");
-    let mut out = (p - k + 1);
-    for i in p-k+2 .. p+1
-    {
-        out *= i;
-    }
-    out as f64
-}
 
 
 pub fn is_member(knots: &[f64], u: f64) -> bool
@@ -189,6 +180,35 @@ pub fn eval_diff(knots: &[f64], u: f64, p: usize, k: usize, shape_ders: &mut [f6
             saved = temp;
         }
         shape_ders[p_k2] = saved;
+    }
+}
+
+pub fn eval_diff_all(knots: &[f64], u: f64, p: usize, k: usize, shape_ders: &mut [f64])
+{
+
+    debug_assert!(is_member(knots, u), "u is not member of parameter range");
+    debug_assert!(p <= PMAX, "order exceeds max allowable");
+    debug_assert!(k <= p, "order of derivative exceeds order");
+    debug_assert!(shape_ders.len() >= (k+1) * (p+1), "Derivative buffer too small");
+
+    shape_ders.fill(0.0);
+    let mut shape_ders_arr = NDArray::<f64, 2>::new(shape_ders, &[p+1, k+1]);
+
+    let mut shape_funs = [0.0; PMAX + 1];
+    eval(knots, u, p, &mut shape_funs);
+    for j in 0..p+1
+    {
+        shape_ders_arr[&[j, 0]] = shape_funs[j];
+    }
+
+    for k2 in 1 .. p+1
+    {
+        let mut shape_ders_loc = [0.0; PMAX + 1];
+        eval_diff(knots, u, p, k2, &mut shape_ders_loc);
+        for j in 0..p+1
+        {
+            shape_ders_arr[&[j, k2]] = shape_ders_loc[j];
+        }
     }
 }
 
@@ -372,5 +392,56 @@ mod tests {
     eval_diff!(eval_diff2, knots_p2, ders_p2, 2);
     eval_diff!(eval_diff3, knots_p3, ders_p3, 3);
     eval_diff!(eval_diff4, knots_p4, ders_p4, 4);
+    //..............................................................................................
 
+    macro_rules! eval_diff_all {
+        ($test_name:ident, $knots:ident, $ders:ident, $order:expr) => {
+            #[test]
+            fn $test_name() {
+                let p = $order;
+                let test_data = TestData::new();
+                let knots = test_data.$knots.values.clone();
+
+                for (idx, u) in test_data.u.values.iter().enumerate()
+                {
+                    let ders_start = idx * (p + 1);
+                    let ders_end = (idx+1) * (p + 1);
+                    let mut ders1_all = test_data.$ders.values[ders_start..ders_end].to_vec();
+                    ders1_all.iter_mut().for_each(|elem| {
+                        elem.iter_mut().for_each(|elem2| {
+                            if elem2.abs() < ZERO_THRESHOLD
+                            {
+                                *elem2 = 0.0;
+                            }
+                        })
+                    });
+
+                    let mut ders2_all = [0.0; (PMAX + 1) * (PMAX + 1)];
+                    eval_diff_all(&knots, *u, p, p, &mut ders2_all);
+                    ders2_all.iter_mut().for_each(|elem|{
+                        if elem.abs() < ZERO_THRESHOLD {
+                            *elem = 0.0;
+                        }
+                    });
+                    let ders2_all_arr = NDArray::new(&mut ders2_all, &[p+1, p+1]);
+
+                    let (start, _end, _num_basis) = non_zero_basis(&knots, *u, p);
+
+                    for i in 0..p+1 {
+                        for j in 0..p+1 {
+                            let val1 = ders1_all[j][start + i];
+                            let val2 = ders2_all_arr[&[i, j]];
+                            assert_relative_eq!(val1, val2, max_relative = 1e-14);
+                        }
+                    }
+
+                }
+            }
+        };
+    }
+    eval_diff_all!(eval_diff_all0, knots_p0, ders_p0, 0);
+    eval_diff_all!(eval_diff_all1, knots_p1, ders_p1, 1);
+    eval_diff_all!(eval_diff_all2, knots_p2, ders_p2, 2);
+    eval_diff_all!(eval_diff_all3, knots_p3, ders_p3, 3);
+    eval_diff_all!(eval_diff_all4, knots_p4, ders_p4, 4);
 }

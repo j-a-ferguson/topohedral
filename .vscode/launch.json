@@ -40,7 +40,7 @@
                     "kind": "lib"
                 }
             },
-            "args": ["eval_diff2"],
+            "args": ["linear_index3"],
             "cwd": "${workspaceFolder}",
             "sourceLanguages": ["rust"]
         } 

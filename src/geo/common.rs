@@ -16,7 +16,8 @@ use nalgebra as na;
 
 // ------------------------------------------- Types -------------------------------------------- //
 
-pub type Vector<const D: usize> = na::SVector<f64, D>;
+pub type Vector<const N: usize> = na::SVector<f64, N>;
+
 
 // ------------------------------------------- Traits ------------------------------------------- //
 
@@ -26,6 +27,7 @@ pub trait Curve {
 
     fn eval(&self, u: f64, point: &mut [f64]);
     fn eval_diff(&self, u: f64, m: usize, diff: &mut [f64]);
+    fn eval_diff_all(&self, u: f64, m: usize, diff: &mut[f64]);
     fn eval_tangent(&self, u: f64, normalise: bool, tan: &mut [f64]);
     fn eval_normal(&self, u: f64, normalise: bool, nor: &mut [f64]);
     fn eval_binormal(&self, u: f64, normalise: bool, bin: &mut [f64]);
@@ -39,25 +41,27 @@ pub trait Curve {
 
 // --------------------------------------- Free Functions---------------------------------------- //
 
-pub fn inv_homog<const D: usize>(point_w: &Vector<D>) -> Vector<{D-1}>
+pub fn inv_homog<const N: usize>(point_w: &Vector<{N+1}>) -> Vector<{N}>
+where 
+    [(); N+1]:,
 {
-    let mut point = Vector::<{D-1}>::from_element(0.0);
-    let w = point_w[D-1];
-    for i in 0..D-1
+    let mut point = Vector::<{N}>::from_element(0.0);
+    let w = point_w[N];
+    for i in 0..N
     {
         point[i] = point_w[i] / w;
     }
     point
 }
 
-pub fn homog<const D: usize>(point: &Vector<D>, weight: f64) -> Vector<{D+1}>
+pub fn homog<const N: usize>(point: &Vector<N>, weight: f64) -> Vector<{N+1}>
 {
-    let mut point_w = Vector::<{D+1}>::from_element(0.0);
-    for i in 0..D
+    let mut point_w = Vector::<{N+1}>::from_element(0.0);
+    for i in 0..N
     {
         point_w[i] = weight * point[i];
     }
-    point_w[D] = weight;
+    point_w[N] = weight;
     point_w
 }
 
