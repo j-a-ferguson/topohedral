@@ -3,10 +3,6 @@
 //! 
 //! 
 //! 
-
-
-
-
 use crate::spl;
 use crate::geo::common::{Vector, Curve, inv_homog, homog};
 use crate::utl::NDArray;
@@ -34,6 +30,7 @@ where
 
 // ----------------------------------------- Constants ------------------------------------------ //
 
+const DIM_MAX: usize = spl::PMAX+1;
 
 // --------------------------------------- Free Functions---------------------------------------- //
 
@@ -103,6 +100,7 @@ where
 impl<const D: usize> Curve for Bcurve<D>
 where 
     [(); D+1]:,
+    [(); D * DIM_MAX]:,
 {
     
     fn eval(&self, u: f64, point: &mut [f64])
@@ -129,10 +127,18 @@ where
     {
         debug_assert!(spl::is_member(&self.knots, u));
         debug_assert!(diff.len() >= D);
+        debug_assert!(m <= self.p);
 
-        let mut dersw = [Vector::<{D+1}>::zeros(); spl::PMAX];
-        let (start, end, num_basis) = spl::non_zero_basis(&self.knots, u, self.p);
-
+        if m == 0 
+        {
+            self.eval(u, diff);
+        }
+        else 
+        {
+            let mut diff_loc = [0.0; D * DIM_MAX];
+            self.eval_diff_all(u, m, &mut diff_loc);
+            diff.copy_from_slice(&diff_loc[D*m..D*(m+1)]);
+        }
     }
 
     fn eval_diff_all(&self, u: f64, k: usize, ders: &mut[f64])
@@ -141,35 +147,51 @@ where
         debug_assert!(ders.len() >= D);
         debug_assert!(k <= self.p);
 
-        const DIM_MAX: usize = spl::PMAX+1;
-        let dim = k+1;
-        let mut dersw = [Vector::<{D+1}>::zeros(); DIM_MAX];
-        let (start, _, num_basis) = spl::non_zero_basis(&self.knots, u, self.p);
-
-        let mut basis_ders = [0.0; DIM_MAX * DIM_MAX];
-        spl::eval_diff_all(&self.knots, u, self.p, k, &mut basis_ders);
-        let basis_ders_arr  = NDArray::<'_, f64, 2>::new(&mut basis_ders, &[dim+1, dim+1]);
-
-        for m in 0..k+1 // loop over derivatives
+        if k == 0
         {
-            for j in 0..num_basis
-            {
-                let nj = basis_ders_arr[&[j, m]];
-                let pwj = self.cpoints_w[start + j];
-                dersw[m] += nj * pwj;
-            }
+            self.eval(u, ders);
         }
-
-        let mut binom = [0.0; DIM_MAX * DIM_MAX];
-        binom_coeff(k+1, &mut binom);
-        let binom_arr = NDArray::<'_, f64, 2>::new(&mut binom, &[dim, dim]);
-
-        for m in 0..k+1
+        else 
         {
-            let mut v = dersw[m].clone();
-            for j in 1..m+1
+            let dim = k+1;
+            let mut dersw = [Vector::<{D+1}>::zeros(); DIM_MAX];
+            let (start, _, num_basis) = spl::non_zero_basis(&self.knots, u, self.p);
+
+            let mut basis_ders = [0.0; DIM_MAX * DIM_MAX];
+            spl::eval_diff_all(&self.knots, u, self.p, k, &mut basis_ders);
+            let basis_ders_arr  = NDArray::<'_, f64, 2>::new(&mut basis_ders, &[dim,num_basis]);
+
+            for m in 0..k+1 // loop over derivatives
             {
-                v -= binom_arr[&[m, j]] * dersw[m - j];
+                for j in 0..num_basis
+                {
+                    let nj = basis_ders_arr[&[j, m]];
+                    let pwj = self.cpoints_w[start + j];
+                    dersw[m] += nj * pwj;
+                }
+            }
+
+            let mut binom = [0.0; DIM_MAX * DIM_MAX];
+            binom_coeff(k, &mut binom);
+            let binom_arr = NDArray::<'_, f64, 2>::new(&mut binom, &[dim, dim]);
+
+            let mut ders_loc = [Vector::<D>::zeros(); DIM_MAX];
+            let w0 = dersw[0][D];
+            let mut v = Vector::<D>::zeros();
+
+            for m in 0..k+1
+            {
+                v.fill(0.0);
+                v.copy_from(&dersw[m].rows(0, D));
+                // v.copy_from_view(dersw[m].rows(0, D));
+
+                for j in 1..m+1
+                {
+                    let wj = dersw[j][D];
+                    v -= binom_arr[&[m, j]] * wj * ders_loc[m - j];
+                }
+                ders_loc[m] = v / w0;
+                ders[D*m..D*(m+1)].copy_from_slice(ders_loc[m].as_slice());
             }
         }
     }
@@ -226,6 +248,9 @@ mod tests {
     use super::Bcurve;
     use super::Vector;
     use super::binom_coeff;
+
+
+    const ZERO_THRESHOLD: f64=1e-13;
 
     
     fn convert<const D: usize>(data: &Vec::<Vec<f64>>) -> Vec<Vector<D>>
@@ -424,12 +449,24 @@ mod tests {
 
                 for (idx, u) in test_data.u.values.iter().enumerate()
                 {
-                    let ders_all_1 = ders[idx].clone();
+                    let mut ders_all_1 = ders[idx].clone();
                     for k in 0..p+1
                     {
-                        let ders1 = &ders_all_1[(k * d) .. ((k + 1) * d)];
+                        let mut ders1 = &mut ders_all_1[(k * d) .. ((k + 1) * d)];
+                        ders1.iter_mut().for_each(|elem| {
+                            if elem.abs() < ZERO_THRESHOLD
+                            {
+                                *elem = 0.0;
+                            }
+                        });
                         let mut ders2 = Vector::<$dim>::zeros();
                         bcurve.eval_diff(*u, k, ders2.as_mut_slice());
+                        ders2.iter_mut().for_each(|elem| {
+                            if elem.abs() < ZERO_THRESHOLD
+                            {
+                                *elem = 0.0;
+                            }
+                        });
                         for i in 0..d
                         {
                             assert_relative_eq!(ders1[i], ders2[i], max_relative = 1e-12);
