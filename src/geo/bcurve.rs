@@ -159,7 +159,7 @@ where
 
             let mut basis_ders = [0.0; DIM_MAX * DIM_MAX];
             spl::eval_diff_all(&self.knots, u, self.p, k, &mut basis_ders);
-            let basis_ders_arr  = NDArray::<'_, f64, 2>::new(&mut basis_ders, &[dim,num_basis]);
+            let basis_ders_arr  = NDArray::<'_, f64, 2>::new(&mut basis_ders, &[num_basis,k+1]);
 
             for m in 0..k+1 // loop over derivatives
             {
@@ -188,7 +188,8 @@ where
                 for j in 1..m+1
                 {
                     let wj = dersw[j][D];
-                    v -= binom_arr[&[m, j]] * wj * ders_loc[m - j];
+                    let bmj = binom_arr[&[m, j]];
+                    v -= bmj * wj * ders_loc[m - j];
                 }
                 ders_loc[m] = v / w0;
                 ders[D*m..D*(m+1)].copy_from_slice(ders_loc[m].as_slice());
@@ -477,12 +478,12 @@ mod tests {
         };
     }
     eval_diff!(eval_diff_d2_p1, knots_p1, weights_p1, cpoints_d2_p1, ders_d2_p1, 2, 1);
-    // eval!(eval_d2_p2, knots_p2, weights_p2, cpoints_d2_p2, points_d2_p2, 2, 2);
-    // eval!(eval_d2_p3, knots_p3, weights_p3, cpoints_d2_p3, points_d2_p3, 2, 3);
-    // eval!(eval_d2_p4, knots_p4, weights_p4, cpoints_d2_p4, points_d2_p4, 2, 4);
-    // eval!(eval_d3_p1, knots_p1, weights_p1, cpoints_d3_p1, points_d3_p1, 3, 1);
-    // eval!(eval_d3_p2, knots_p2, weights_p2, cpoints_d3_p2, points_d3_p2, 3, 2);
-    // eval!(eval_d3_p3, knots_p3, weights_p3, cpoints_d3_p3, points_d3_p3, 3, 3);
-    // eval!(eval_d3_p4, knots_p4, weights_p4, cpoints_d3_p4, points_d3_p4, 3, 4);
+    eval_diff!(eval_diff_d2_p2, knots_p2, weights_p2, cpoints_d2_p2, ders_d2_p2, 2, 2);
+    eval_diff!(eval_diff_d2_p3, knots_p3, weights_p3, cpoints_d2_p3, ders_d2_p3, 2, 3);
+    eval_diff!(eval_diff_d2_p4, knots_p4, weights_p4, cpoints_d2_p4, ders_d2_p4, 2, 4);
+    eval_diff!(eval_diff_d3_p1, knots_p1, weights_p1, cpoints_d3_p1, ders_d3_p1, 3, 1);
+    eval_diff!(eval_diff_d3_p2, knots_p2, weights_p2, cpoints_d3_p2, ders_d3_p2, 3, 2);
+    eval_diff!(eval_diff_d3_p3, knots_p3, weights_p3, cpoints_d3_p3, ders_d3_p3, 3, 3);
+    eval_diff!(eval_diff_d3_p4, knots_p4, weights_p4, cpoints_d3_p4, ders_d3_p4, 3, 4);
 
 }
