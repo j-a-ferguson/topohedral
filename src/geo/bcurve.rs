@@ -97,7 +97,7 @@ where
     }
 }
 
-impl<const D: usize> Curve for Bcurve<D>
+impl<const D: usize> Curve<D> for Bcurve<D>
 where 
     [(); D+1]:,
     [(); D * DIM_MAX]:,
@@ -197,23 +197,35 @@ where
         }
     }
 
-    fn eval_tangent(&self, u: f64, normalise: bool, tan: &mut [f64])
+    fn eval_tangent(&self, u: f64, normalise: bool) -> Vector<D>
     {
+        debug_assert!(spl::is_member(&self.knots, u));
+        let mut tan =  Vector::<D>::zeros();
+        self.eval_diff(u, 1, tan.as_mut_slice());
 
+        if normalise {
+            tan = tan.normalize();
+        }
+        tan
     }
 
-    fn eval_normal(&self, u: f64, normalise: bool, nor: &mut [f64])
+    fn eval_normal(&self, u: f64, normalise: bool) -> Vector<D>
     {
-
-
+        debug_assert!(spl::is_member(&self.knots, u));
+        let mut norm = Vector::<D>::zeros();
+        norm 
     }
-    fn eval_binormal(&self, u: f64, normalise: bool, bin: &mut [f64])
+
+    fn eval_binormal(&self, u: f64, normalise: bool) -> Vector<D>
     {
-
-
+        debug_assert!(spl::is_member(&self.knots, u));
+        let mut binorm = Vector::<D>::zeros();
+        binorm
     }
+
     fn eval_curvature(&self, u: f64) -> f64
     {
+        debug_assert!(spl::is_member(&self.knots, u));
         let out = 0.0;
         out
 
