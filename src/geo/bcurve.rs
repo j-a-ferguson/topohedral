@@ -97,10 +97,11 @@ where
     }
 }
 
-impl<const D: usize> Curve<D> for Bcurve<D>
+impl<const D: usize> Curve for Bcurve<D>
 where 
     [(); D+1]:,
     [(); D * DIM_MAX]:,
+    [(); D*3]:, 
 {
     
     fn eval(&self, u: f64, point: &mut [f64])
@@ -197,30 +198,53 @@ where
         }
     }
 
-    fn eval_tangent(&self, u: f64, normalise: bool) -> Vector<D>
+    fn eval_tangent(&self, u: f64, normalise: bool, tangent: &mut [f64])
     {
         debug_assert!(spl::is_member(&self.knots, u));
+        debug_assert!(tangent.len() >= D);
+
         let mut tan =  Vector::<D>::zeros();
         self.eval_diff(u, 1, tan.as_mut_slice());
 
         if normalise {
             tan = tan.normalize();
         }
-        tan
+        tangent.copy_from_slice(tan.as_slice());
     }
 
-    fn eval_normal(&self, u: f64, normalise: bool) -> Vector<D>
+    fn eval_normal(&self, u: f64, normalise: bool, normal: &mut [f64])
+    where 
     {
         debug_assert!(spl::is_member(&self.knots, u));
-        let mut norm = Vector::<D>::zeros();
-        norm 
+        let mut normal_loc = Vector::<D>::zeros();
+
+        if D == 2 {
+            
+            let mut tangent = Vector::<D>::zeros();
+            self.eval_tangent(u, normalise, tangent.as_mut_slice());
+            normal[0] = -tangent[1];
+            normal[1] = tangent[0];
+        }
+        else if D == 3 {
+
+            let mut ders = [0.0; D * 3];
+            self.eval_diff_all(u, 2, &mut ders);
+            let ve = Vector::<D>::from_column_slice(&ders[D..2*D]);
+            let norm_ve = ve.norm();
+            let acc = Vector::<D>::from_column_slice(&ders[2*D..3*D]);
+            let normal_loc = acc - (ve.dot(&acc) / norm_ve) * ve;
+            normal.copy_from_slice(normal_loc.as_slice());
+        
+        }
+        else {
+            panic!("D must be 2 or 3");
+        }
     }
 
-    fn eval_binormal(&self, u: f64, normalise: bool) -> Vector<D>
+    fn eval_binormal(&self, u: f64, normalise: bool, binormal: &mut [f64])
     {
         debug_assert!(spl::is_member(&self.knots, u));
         let mut binorm = Vector::<D>::zeros();
-        binorm
     }
 
     fn eval_curvature(&self, u: f64) -> f64
@@ -281,6 +305,15 @@ mod tests {
             out[idx].copy_from_slice(val);
         }
         out
+    }
+
+    fn de_noise(data: &mut [f64])
+    {
+        data.iter_mut().for_each(|elem| {
+            if elem.abs() < ZERO_THRESHOLD {
+                *elem = 0.0;
+            }
+        })
     }
 
 
@@ -466,20 +499,10 @@ mod tests {
                     for k in 0..p+1
                     {
                         let mut ders1 = &mut ders_all_1[(k * d) .. ((k + 1) * d)];
-                        ders1.iter_mut().for_each(|elem| {
-                            if elem.abs() < ZERO_THRESHOLD
-                            {
-                                *elem = 0.0;
-                            }
-                        });
+                        de_noise(ders1);
                         let mut ders2 = Vector::<$dim>::zeros();
                         bcurve.eval_diff(*u, k, ders2.as_mut_slice());
-                        ders2.iter_mut().for_each(|elem| {
-                            if elem.abs() < ZERO_THRESHOLD
-                            {
-                                *elem = 0.0;
-                            }
-                        });
+                        de_noise(ders2.as_mut_slice());
                         for i in 0..d
                         {
                             assert_relative_eq!(ders1[i], ders2[i], max_relative = 1e-12);
@@ -497,5 +520,44 @@ mod tests {
     eval_diff!(eval_diff_d3_p2, knots_p2, weights_p2, cpoints_d3_p2, ders_d3_p2, 3, 2);
     eval_diff!(eval_diff_d3_p3, knots_p3, weights_p3, cpoints_d3_p3, ders_d3_p3, 3, 3);
     eval_diff!(eval_diff_d3_p4, knots_p4, weights_p4, cpoints_d3_p4, ders_d3_p4, 3, 4);
+    //..............................................................................................
+
+    macro_rules! tangent {
+        ($test_name: ident, $knots: ident, $weights: ident, $cpoints:ident, $tangents: ident, $dim: expr, $order:expr) => {
+            #[test]
+            fn $test_name() {
+                let d = $dim;
+                let p = $order;
+                let test_data = TestData::new();
+                let knots = test_data.$knots.values;
+                let weights = test_data.$weights.values;
+                let cpoints: Vec<Vector<$dim>> = convert(&test_data.$cpoints.values);
+                let tangents = test_data.$tangents.values;
+                let bcurve = Bcurve::<$dim>::new(p, &knots, &weights, &cpoints);
+
+                for (idx, u) in test_data.u.values.iter().enumerate()
+                {
+                    let mut tangent1 = tangents[idx].clone();
+                    de_noise(tangent1.as_mut_slice());
+                    let mut tangent2 = Vector::<$dim>::zeros();
+                    bcurve.eval_tangent(*u, false, tangent2.as_mut_slice()); 
+                    de_noise(tangent2.as_mut_slice());
+                    for i in 0..d
+                    {
+                        assert_relative_eq!(tangent1[i], tangent2[i], max_relative = 1e-12);
+                    }
+                }
+            }     
+        };
+    }
+    tangent!(tangent_d2_p1, knots_p1, weights_p1, cpoints_d2_p1, tangent_d2_p1, 2, 1);
+    tangent!(tangent_d2_p2, knots_p2, weights_p2, cpoints_d2_p2, tangent_d2_p2, 2, 2);
+    tangent!(tangent_d2_p3, knots_p3, weights_p3, cpoints_d2_p3, tangent_d2_p3, 2, 3);
+    tangent!(tangent_d2_p4, knots_p4, weights_p4, cpoints_d2_p4, tangent_d2_p4, 2, 4);
+    tangent!(tangent_d3_p1, knots_p1, weights_p1, cpoints_d3_p1, tangent_d3_p1, 3, 1);
+    tangent!(tangent_d3_p2, knots_p2, weights_p2, cpoints_d3_p2, tangent_d3_p2, 3, 2);
+    tangent!(tangent_d3_p3, knots_p3, weights_p3, cpoints_d3_p3, tangent_d3_p3, 3, 3);
+    tangent!(tangent_d3_p4, knots_p4, weights_p4, cpoints_d3_p4, tangent_d3_p4, 3, 4);
+    //..............................................................................................
 
 }

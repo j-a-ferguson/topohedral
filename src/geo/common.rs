@@ -20,7 +20,7 @@ pub type Vector<const N: usize> = na::SVector<f64, N>;
 
 /// This trait models the set of operations on a curve.
 ///  
-pub trait Curve<const D: usize> {
+pub trait Curve {
     /// Evaluates a curve at the parameter value $u$
     /// # Arguments
     /// * `u` [I] - The curve parameter value
@@ -48,9 +48,9 @@ pub trait Curve<const D: usize> {
     ///                is stored in `ders[i*D..(i+1)*D]`
     /// 
     fn eval_diff_all(&self, u: f64, m: usize, ders: &mut [f64]);
-    fn eval_tangent(&self, u: f64, normalise: bool) -> Vector<D>;
-    fn eval_normal(&self, u: f64, normalise: bool) -> Vector<D>;
-    fn eval_binormal(&self, u: f64, normalise: bool) -> Vector<D>;
+    fn eval_tangent(&self, u: f64, normalise: bool, tangent: &mut [f64]);
+    fn eval_normal(&self, u: f64, normalise: bool, normal: &mut [f64]);
+    fn eval_binormal(&self, u: f64, normalise: bool, binormal: &mut [f64]);
     fn eval_curvature(&self, u: f64) -> f64;
     fn eval_torsion(&self, u: f64) -> f64;
     fn eval_arclen(&self, u1: f64, u2: f64) -> f64;

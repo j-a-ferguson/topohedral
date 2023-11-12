@@ -1,3 +1,5 @@
 /target
 /Cargo.lock
 /assets/venv
+
+__pycache__/

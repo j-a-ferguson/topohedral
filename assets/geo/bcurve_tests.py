@@ -208,6 +208,7 @@ def curveTangent(data_out: dict):
             curve.knotvector = knots
             curve.weights = weights
 
+
             tangents = np.zeros((num_points, d))
             tan_i = [0 for _ in range(d)]
             for i, ui in enumerate(u):
@@ -218,7 +219,7 @@ def curveTangent(data_out: dict):
             dataset_str = 'tangent_d%i_p%i' % (d, p)
             data_out[dataset_str] = dict()
             data_out[dataset_str]["description"] = "tangents of the curve evaluated at the paramters"
-            data_out[dataset_str]["values"] = tangents.transpose().tolist()
+            data_out[dataset_str]["values"] = tangents.tolist()
 
 
 def curveNormal(data_out: dict):
