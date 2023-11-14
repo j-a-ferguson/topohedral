@@ -15,7 +15,6 @@ use nalgebra as na;
 // ------------------------------------------- Types -------------------------------------------- //
 
 pub type Vector<const N: usize> = na::SVector<f64, N>;
-
 // ------------------------------------------- Traits ------------------------------------------- //
 
 /// This trait models the set of operations on a curve.

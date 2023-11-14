@@ -230,9 +230,17 @@ where
             let mut ders = [0.0; D * 3];
             self.eval_diff_all(u, 2, &mut ders);
             let ve = Vector::<D>::from_column_slice(&ders[D..2*D]);
-            let norm_ve = ve.norm();
             let acc = Vector::<D>::from_column_slice(&ders[2*D..3*D]);
-            let normal_loc = acc - (ve.dot(&acc) / norm_ve) * ve;
+
+            let b = acc.cross(&ve);
+            let b_norm = b.norm();
+            let v_x_b = ve.cross(&b).normalize();
+            let mut normal_loc = b_norm * v_x_b; 
+
+            if normalise {
+                normal_loc = normal_loc.normalize();
+            }
+            // let normal_loc = acc - ((ve.dot(&acc) / norm_ve) * ve);
             normal.copy_from_slice(normal_loc.as_slice());
         
         }
@@ -275,7 +283,7 @@ where
 #[cfg(test)]
 mod tests {
 
-    use approx::{assert_relative_eq, ulps_eq};
+    use approx::{assert_relative_eq, ulps_eq, assert_abs_diff_eq};
     use serde::Deserialize;
     use std::fs;
 
@@ -560,4 +568,36 @@ mod tests {
     tangent!(tangent_d3_p4, knots_p4, weights_p4, cpoints_d3_p4, tangent_d3_p4, 3, 4);
     //..............................................................................................
 
+    macro_rules! normal {
+        ($test_name: ident, $knots: ident, $weights: ident, $cpoints:ident, $tangents: ident, $dim: expr, $order:expr) => {
+            #[test]
+            fn $test_name() {
+                let p = $order;
+                let test_data = TestData::new();
+                let knots = test_data.$knots.values;
+                let weights = test_data.$weights.values;
+                let cpoints: Vec<Vector<$dim>> = convert(&test_data.$cpoints.values);
+                let tangents = test_data.$tangents.values;
+                let bcurve = Bcurve::<$dim>::new(p, &knots, &weights, &cpoints);
+
+                for (idx, u) in test_data.u.values.iter().enumerate()
+                {
+                    let tangent = Vector::<$dim>::from_row_slice(&tangents[idx]);
+                    let mut normal = Vector::<$dim>::zeros();
+                    bcurve.eval_normal(*u, false, normal.as_mut_slice()); 
+                    let dot_product = normal.dot(&tangent);
+                    assert_abs_diff_eq!(dot_product, 0.0, epsilon = 1e-9);
+                }
+            }     
+        };
+    }
+    normal!(normal_d2_p1, knots_p1, weights_p1, cpoints_d2_p1, tangent_d2_p1, 2, 1);
+    normal!(normal_d2_p2, knots_p2, weights_p2, cpoints_d2_p2, tangent_d2_p2, 2, 2);
+    normal!(normal_d2_p3, knots_p3, weights_p3, cpoints_d2_p3, tangent_d2_p3, 2, 3);
+    normal!(normal_d2_p4, knots_p4, weights_p4, cpoints_d2_p4, tangent_d2_p4, 2, 4);
+    normal!(normal_d3_p1, knots_p1, weights_p1, cpoints_d3_p1, tangent_d3_p1, 3, 1);
+    normal!(normal_d3_p2, knots_p2, weights_p2, cpoints_d3_p2, tangent_d3_p2, 3, 2);
+    normal!(normal_d3_p3, knots_p3, weights_p3, cpoints_d3_p3, tangent_d3_p3, 3, 3);
+    normal!(normal_d3_p4, knots_p4, weights_p4, cpoints_d3_p4, tangent_d3_p4, 3, 4);
+    //..............................................................................................
 }

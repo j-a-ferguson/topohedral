@@ -13,10 +13,10 @@
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=hedral"
+                    "--package=topohedral"
                 ],
                 "filter": {
-                    "name": "hedral",
+                    "name": "topohedral",
                     "kind": "lib"
                 }
             },
@@ -33,10 +33,10 @@
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=hedral"
+                    "--package=topohedral"
                 ],
                 "filter": {
-                    "name": "hedral",
+                    "name": "topohedral",
                     "kind": "lib"
                 }
             },

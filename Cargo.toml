@@ -1,7 +1,10 @@
 [package]
-name = "hedral"
+name = "topohedral"
 version = "0.1.0"
 edition = "2021"
+
+[toolchain]
+channel = "nightly"
 
 [dependencies]
 nalgebra = "0.32.3"
